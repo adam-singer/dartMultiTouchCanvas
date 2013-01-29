@@ -1,0 +1,5 @@
+name:  dart_multitouch_canvas_example
+description:  A sample application
+
+dependencies:
+  browser: any
