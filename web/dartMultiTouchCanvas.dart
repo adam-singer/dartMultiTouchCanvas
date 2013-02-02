@@ -24,11 +24,6 @@ _setupLogger() {
   });
 }
 
-// Code kindly borrowed from http://paulirish.com/demo/multi
-// Original code by Tim Branyen, Mike Taylr, Paul Irish & Boris Smus,
-
-//typedef void OnAddedValueCallback(Line line);
-
 class ValueChangedEvent {
   var property;
   var newValue;
@@ -45,7 +40,7 @@ class MultiTouchModel {
 
   dartMultiTouchCanvas multiTouchCanvas; // TODO(adam): move this out of the model.
 
-  List _defaultLines = []; //new Map<String, String>();
+  List _defaultLines = [];
   String _linesName = "lines";
   js.Proxy _lines;
   void addLine(Line line) {
@@ -55,19 +50,12 @@ class MultiTouchModel {
     });
   }
 
-//  OnAddedValueCallback onAddedValueHandler;
-
   void _linesOnAddValuesChangedEvent(addedValue) {
     _logger.fine("_linesOnAddValuesChangedEvent addedValue = ${addedValue}");
     _logger.fine("_linesOnAddValuesChangedEvent addedValue.index = ${addedValue.index}");
     var insertedLine = _lines.get(addedValue.index);
-    //print("parsed = ${JSON.parse(js.context.JSON.stringify(insertedLine))}");
     var line = new Line.fromJson(insertedLine);
-
     multiTouchCanvas.move(line, line.moveX, line.moveY);
-//    if (onAddedValueHandler != null) {
-//      onAddedValueHandler(line);
-//    }
   }
 
 
@@ -84,8 +72,15 @@ class MultiTouchModel {
   void onFileLoaded(js.Proxy doc) {
     _bindModel(doc);
     multiTouchCanvas = new dartMultiTouchCanvas();
-
     multiTouchCanvas.run();
+    /// Fill in previous lines if they exist.
+    if (!newModel && _lines != null) {
+      for (int i = 0; i < _lines.length; i++) {
+        var jsonLine = _lines.get(i);
+        var line = new Line.fromJson(jsonLine);
+        multiTouchCanvas.move(line, line.moveX, line.moveY);
+      }
+    }
   }
 
   void _createNewModel(js.Proxy model) {
@@ -233,8 +228,6 @@ class dartMultiTouchCanvas {
     var id = mouseId.toString();
     var mycolor = colors[(random.nextDouble()*colors.length).floor().toInt()];
     lines[id] = new Line(event.pageX, event.pageY, mycolor);
-    //model.lines = { "$id": lines[id].toJson() };
-    //model.addLine(lines[id]);
     event.preventDefault();
   }
 
@@ -304,7 +297,6 @@ void main() {
         });
 
         model = new MultiTouchModel(newModel: true);
-
         loadRealTimeFile(fileId, model.onFileLoaded, model.initializeModel);
       });
     });

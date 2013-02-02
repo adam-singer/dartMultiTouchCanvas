@@ -1,9 +1,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-
     <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
-
     <title>Dart Multi Touch Canvas</title>
 	 <meta name="apple-mobile-web-app- status-bar-style" content="black-translucent" />
 	 <style type='text/css'>
@@ -11,19 +9,13 @@
 	 </style>
   </head>
   <body>
-
     <button id="createNewCanvasButton">New Canvas</button>
     <button id="openButton">Open</button>
     <input id="fileIdInput"></input>
-
     <div id="div">
-    <!--
-	  <canvas id="canvas" width="320" height="480">
-		<p>Your browser doesn't support HTML5 canvas.</p>
-	  </canvas>
-	  -->
     </div>
     <script type="application/dart" src="dartMultiTouchCanvas.dart"></script>
-    <script src="packages/browser/dart.js"></script>
+    <script src="dart.js"></script>
+    <script src="dart_interop.js"></script>
   </body>
 </html>
