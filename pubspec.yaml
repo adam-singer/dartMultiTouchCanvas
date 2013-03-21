@@ -2,8 +2,7 @@ name:  dart_multitouch_canvas_example
 description:  A sample application
 
 dependencies:
-  js:
-    git: git://github.com/dart-lang/js-interop.git
-  logging: 0.3.1+1
-  unittest: 0.3.1+1
-  browser: 0.3.1+1
+  js: 0.0.18
+  logging: 0.4.2+1
+  unittest: 0.4.2
+  browser: 0.4.2

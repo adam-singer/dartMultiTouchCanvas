@@ -8,9 +8,12 @@ import 'package:logging/logging.dart';
 import 'oauth2_v2_schema.dart' as oauth2;
 import 'drive_v2_schema.dart' as drive;
 
+Timer timer;
+
 Logger _rtclientLogger = new Logger('rtclient');
 
 js.Proxy _gapi;
+js.Proxy get gapi => _gapi;
 
 /**
  * Address of the RealTime server.
@@ -130,8 +133,8 @@ shareRealTimeFile(String appId, String fileId) {
   });
 }
 
-typedef onFileLoadedCallback(js.Proxy doc);
-typedef initializeModelCallback(js.Proxy model);
+typedef void onFileLoadedCallback(js.Proxy doc);
+typedef void initializeModelCallback(js.Proxy model);
 
 /**
  * Loads and starts listening to a RealTime file.
@@ -150,12 +153,12 @@ void loadRealTimeFile(String fileId, onFileLoadedCallback onFileLoaded, initiali
     _gapi.drive.realtime.load(fileId,
         new js.Callback.once((var doc) {
           _rtclientLogger.fine("onFileLoaded callback");
-          js.context.console.log(doc);
+          //js.context.console.log(doc);
           onFileLoaded(doc);
         }),
         new js.Callback.once((var model) {
           _rtclientLogger.fine("initializeModel callback");
-          js.context.console.log(model);
+          //js.context.console.log(model);
           initializeModel(model);
         }));
   });
@@ -205,6 +208,7 @@ class Authorizer {
   start(onAuthComplete) {
     _logger.fine("start(onAuthComplete)");
     Function authorize = () {
+      timer.cancel();
       js.scoped(() {
         _gapi.auth.authorize(
             js.map({
@@ -224,7 +228,8 @@ class Authorizer {
       _gapi.load('auth:client,drive-realtime,drive-share', new js.Callback.once((){
         _logger.fine("load: auth:client,drive-realtime,drive-share");
         _gapi.client.setApiKey(this.apiKey);
-        window.setTimeout(authorize, 1);
+        
+        timer = new Timer(const Duration(milliseconds: 10), authorize);
       }));
     });
   }
@@ -280,6 +285,7 @@ class RealTimeLoader {
     var completer = new Completer();
     _logger.fine("start()");
     this.authorizer.start((js.Proxy authResult) {
+      _logger.fine("authResult = ${authResult}");
       _logger.fine("authResult = ${JSON.parse(js.context.JSON.stringify(authResult))}");
       this.load().then((bool isComplete) {
         _connected = isComplete;
@@ -304,10 +310,10 @@ class RealTimeLoader {
       this.authorizer.reauthorize();
     };
 
-    js.scoped(() {
-      _gapi.drive.realtime.setAuthFailCallback(new js.Callback.many(reAuth));
+    //js.scoped(() {
+    //  _gapi.drive.realtime.setAuthFailCallback(new js.Callback.many(reAuth));
       completer.complete(true);
-    });
+    //});
 
     return completer.future;
   }

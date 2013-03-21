@@ -8,18 +8,18 @@ import 'package:logging/logging.dart';
 
 _setupLogger() {
   Logger.root.level = Level.ALL;
-  Logger.root.on.record.add((LogRecord r) {
+  Logger.root.onRecord.listen((LogRecord r) {
     StringBuffer sb = new StringBuffer();
     sb
-    ..add(r.time.toString())
-    ..add(":")
-    ..add(r.loggerName)
-    ..add(":")
-    ..add(r.level.name)
-    ..add(":")
-    ..add(r.sequenceNumber)
-    ..add(": ")
-    ..add(r.message.toString());
+    ..write(r.time.toString())
+    ..write(":")
+    ..write(r.loggerName)
+    ..write(":")
+    ..write(r.level.name)
+    ..write(":")
+    ..write(r.sequenceNumber)
+    ..write(": ")
+    ..write(r.message.toString());
     print(sb.toString());
   });
 }
@@ -35,7 +35,6 @@ class MultiTouchModel {
   Logger _logger = new Logger("MultiTouchModel");
   js.Proxy _doc;
   js.Proxy get document => _doc;
-  var _eventRouter;
   bool newModel;
 
   dartMultiTouchCanvas multiTouchCanvas; // TODO(adam): move this out of the model.
@@ -43,13 +42,30 @@ class MultiTouchModel {
   List _defaultLines = [];
   String _linesName = "lines";
   js.Proxy _lines;
+  
+  void clear() {
+    if (_lines != null) {
+      js.scoped(() {
+        _lines.clear();
+      });
+    }
+  }
+  
   void addLine(Line line) {
-    print(line.toJson());
+    
+    _logger.fine("line.toJson() = ${line.toJson()}");
+    
     js.scoped(() {
       _lines.push(line.toJson());
     });
+    
+    _logger.fine("leaving line.toJson() = ${line.toJson()}");
   }
 
+  void _linesOnRemovedValuesChangedEvent(removedValues) {
+    multiTouchCanvas.clear();
+  }
+  
   void _linesOnAddValuesChangedEvent(addedValue) {
     _logger.fine("_linesOnAddValuesChangedEvent addedValue = ${addedValue}");
     _logger.fine("_linesOnAddValuesChangedEvent addedValue.index = ${addedValue.index}");
@@ -62,6 +78,7 @@ class MultiTouchModel {
   MultiTouchModel({bool this.newModel: true});
 
   void initializeModel(js.Proxy model) {
+    print("creating new model $newModel");
     _logger.fine("creating new model $newModel");
 
     if (newModel) {
@@ -81,12 +98,14 @@ class MultiTouchModel {
         multiTouchCanvas.move(line, line.moveX, line.moveY);
       }
     }
+    
+    _logger.fine("onFileLoaded leaving");
   }
 
   void _createNewModel(js.Proxy model) {
     _logger.fine("_createNewModel adding list");
     var list = model.createList(js.array(_defaultLines));
-    model.getRoot().put(_linesName, list);
+    model.getRoot().set(_linesName, list);
   }
 
   void _bindModel(js.Proxy doc) {
@@ -95,23 +114,16 @@ class MultiTouchModel {
 
     _logger.fine("retained _doc");
 
-    _eventRouter = new js.Callback.many((valueChangedEvent) {
-      _logger.fine("_eventRouter");
-      _logger.fine("valueChangedEvent.property = ${valueChangedEvent.property}");
-    });
-
-    doc.getModel().getRoot().addValueChangedListener(_eventRouter);
-
     _lines = doc.getModel().getRoot().get(_linesName);
 
-    _lines.addValuesAddedListener(new js.Callback.many(_linesOnAddValuesChangedEvent));
+    _lines.addEventListener(gapi.drive.realtime.EventType.VALUES_ADDED, new js.Callback.many(_linesOnAddValuesChangedEvent));
+    _lines.addEventListener(gapi.drive.realtime.EventType.VALUES_REMOVED, new js.Callback.many(_linesOnRemovedValuesChangedEvent));
     js.retain(_lines);
     _logger.fine("_lines retained");
   }
 
   void close() {
     js.scoped((){
-      _doc.getModel().getRoot().removeValueChangedListener(_eventRouter);
       js.release(_doc);
     });
   }
@@ -160,6 +172,7 @@ class dartMultiTouchCanvas {
 
   Map lines;
   List colors = const["red", "green", "yellow", "blue", "magenta", "orangered"];
+  CanvasElement canvas;
   CanvasRenderingContext2D context;
   Math.Random random = new Math.Random();
 
@@ -168,7 +181,7 @@ class dartMultiTouchCanvas {
   bool mouseMoving = false;
 
   void run() {
-    CanvasElement canvas = new CanvasElement();
+    canvas = new CanvasElement();
     context = canvas.getContext("2d");
     DivElement div = document.query("#div");
     div.children.add(canvas);
@@ -187,11 +200,15 @@ class dartMultiTouchCanvas {
     canvas.onMouseUp.listen(drawMouseStop);
   }
 
+  clear() {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  
   preDraw(TouchEvent event) {
     event.touches.forEach((Touch t) {
        var id = t.identifier;
        var mycolor = colors[(random.nextDouble()*colors.length).floor().toInt()];
-       lines[id] = new Line(t.pageX, t.pageY, mycolor);
+       lines[id] = new Line(t.page.x, t.page.y, mycolor);
     });
 
     event.preventDefault();
@@ -200,9 +217,13 @@ class dartMultiTouchCanvas {
   draw(TouchEvent event) {
     event.touches.forEach((Touch t) {
       var id = t.identifier;
-      var moveX = t.pageX - lines[id].x;
-      var moveY = t.pageY - lines[id].y;
+      var moveX = t.page.x - lines[id].x;
+      var moveY = t.page.y - lines[id].y;
       move(lines[id], moveX, moveY);
+      lines[id].moveX = moveX;
+      lines[id].moveY = moveY;
+      model.addLine(lines[id]);
+      
       lines[id].x = lines[id].x + moveX;
       lines[id].y = lines[id].y + moveY;
     });
@@ -227,7 +248,7 @@ class dartMultiTouchCanvas {
     mouseId++;
     var id = mouseId.toString();
     var mycolor = colors[(random.nextDouble()*colors.length).floor().toInt()];
-    lines[id] = new Line(event.pageX, event.pageY, mycolor);
+    lines[id] = new Line(event.layer.x, event.layer.y, mycolor);
     event.preventDefault();
   }
 
@@ -235,8 +256,8 @@ class dartMultiTouchCanvas {
     if (!mouseMoving) return;
 
     var id = mouseId.toString();
-    var moveX = event.pageX - lines[id].x;
-    var moveY = event.pageY - lines[id].y;
+    var moveX = event.layer.x - lines[id].x;
+    var moveY = event.layer.y - lines[id].y;
     move(lines[id], moveX, moveY);
     lines[id].moveX = moveX;
     lines[id].moveY = moveY;
@@ -254,8 +275,15 @@ void main() {
   Logger logger = new Logger("main");
   ButtonElement newCanvasButton = query("#createNewCanvasButton");
   ButtonElement openButton = query("#openButton");
+  ButtonElement clearButton = query("#clearButton");
   InputElement fileIdInput = query("#fileIdInput");
-
+  
+  clearButton.onClick.listen((MouseEvent event) {
+    if (model != null) {
+      model.clear();
+    }
+  });
+  
   openButton.onClick.listen((MouseEvent event) {
     logger.fine("openButton ${fileIdInput.value}");
     if (fileIdInput.value.isEmpty) {
