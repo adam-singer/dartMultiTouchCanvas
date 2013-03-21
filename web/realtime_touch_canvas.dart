@@ -112,7 +112,6 @@ class RealtimeTouchCanvas {
   }
 }
 
-
 void main() {
   _setupLogger();
   Logger logger = new Logger("main");
@@ -120,7 +119,14 @@ void main() {
   ButtonElement openButton = query("#openButton");
   ButtonElement clearButton = query("#clearButton");
   ButtonElement shareButton = query("#shareButton");
+  ButtonElement driveButton = query("#openDriveButton");
   InputElement fileIdInput = query("#fileIdInput");
+  
+  driveButton.onClick.listen((MouseEvent event) {
+    js.scoped(() {
+      js.context.createPicker();
+    });
+  });
   
   shareButton.onClick.listen((MouseEvent event) {
     if (model != null) {
